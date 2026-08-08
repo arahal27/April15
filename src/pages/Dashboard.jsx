@@ -16,11 +16,26 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { fetchTransactions() }, [])
 
-  async function fetchTransactions() {
-    setLoading(true)
-    const { data } = await supabase.from('transactions').select('*').order('date', { ascending: false })
-    setTransactions(data || [])
-    setLoading(false)
+  async function addTransaction() {
+    if (!form.date || !form.description || !form.amount) return
+    setAdding(true)
+    const amount = form.type === 'expense' ? -Math.abs(parseFloat(form.amount)) : Math.abs(parseFloat(form.amount))
+    
+    let category = form.category
+    try {
+      const res = await fetch('/api/categorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: form.description, amount })
+      })
+      const data = await res.json()
+      if (data.category) category = data.category
+    } catch (e) {}
+
+    await supabase.from('transactions').insert([{ ...form, amount, category, user_id: session.user.id }])
+    setForm({ date: new Date().toISOString().slice(0,10), description: '', amount: '', category: 'Food & dining', type: 'expense' })
+    await fetchTransactions()
+    setAdding(false)
   }
 
   async function addTransaction() {

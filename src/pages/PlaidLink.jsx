@@ -65,14 +65,14 @@ export default function PlaidLink({ session, onSuccess }) {
             const txnData = await txnRes.json()
             const plaidTxns = txnData.transactions || []
 
-            const toInsert = plaidTxns.map(t => ({
-              user_id: session.user.id,
-              date: t.date,
-              description: t.name,
-              amount: t.amount > 0 ? -t.amount : Math.abs(t.amount),
-              category: mapCategory(t.category),
-              type: t.amount > 0 ? 'expense' : 'income'
-            }))
+            const toInsert = await Promise.all(plaidTxns.map(async t => ({
+  user_id: session.user.id,
+  date: t.date,
+  description: t.name,
+  amount: t.amount > 0 ? -t.amount : Math.abs(t.amount),
+  category: await mapCategory(t.name, t.amount > 0 ? -t.amount : Math.abs(t.amount)),
+  type: t.amount > 0 ? 'expense' : 'income'
+})))
 
             if (toInsert.length > 0) {
               await supabase.from('transactions').insert(toInsert)
@@ -97,18 +97,18 @@ export default function PlaidLink({ session, onSuccess }) {
     }
   }
 
-  function mapCategory(categories) {
-    if (!categories || !categories.length) return 'Other'
-    const cat = categories[0].toLowerCase()
-    if (cat.includes('food') || cat.includes('restaurant')) return 'Food & dining'
-    if (cat.includes('travel') || cat.includes('transport')) return 'Transport'
-    if (cat.includes('health') || cat.includes('medical')) return 'Healthcare'
-    if (cat.includes('entertainment')) return 'Entertainment'
-    if (cat.includes('shop') || cat.includes('retail')) return 'Shopping'
-    if (cat.includes('utilities') || cat.includes('electric')) return 'Utilities'
-    if (cat.includes('education')) return 'Education'
-    if (cat.includes('business')) return 'Business'
-    return 'Other'
+ async function mapCategory(description, amount) {
+    try {
+      const res = await fetch('/api/categorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description, amount })
+      })
+      const data = await res.json()
+      return data.category || 'Other'
+    } catch (e) {
+      return 'Other'
+    }
   }
 
   return (
