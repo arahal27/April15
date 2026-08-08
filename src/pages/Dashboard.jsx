@@ -27,7 +27,7 @@ export default function Dashboard({ session }) {
     setAdding(true)
     const amount = form.type === 'expense' ? -Math.abs(parseFloat(form.amount)) : Math.abs(parseFloat(form.amount))
     
-    let category = form.category
+   let category = form.category
     try {
       const res = await fetch('/api/categorize', {
         method: 'POST',
@@ -35,8 +35,11 @@ export default function Dashboard({ session }) {
         body: JSON.stringify({ description: form.description, amount })
       })
       const data = await res.json()
+      console.log('AI category result:', data)
       if (data.category) category = data.category
-    } catch (e) {}
+    } catch (e) {
+      console.log('AI categorize error:', e)
+    }
 
     await supabase.from('transactions').insert([{ ...form, amount, category, user_id: session.user.id }])
     setForm({ date: new Date().toISOString().slice(0,10), description: '', amount: '', category: 'Food & dining', type: 'expense' })
