@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import PlaidLink from './PlaidLink'
 import { supabase } from '../lib/supabase'
+import PlaidLink from './PlaidLink'
 
 const CATS_EXP = ['Food & dining','Transport','Housing','Utilities','Healthcare','Entertainment','Shopping','Business','Education','Other']
 const CATS_INC = ['Salary','Freelance','Investments','Rental income','Gifts','Other income']
@@ -12,22 +12,22 @@ export default function Dashboard({ session }) {
   const [tab, setTab] = useState('overview')
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0,10), description: '', amount: '', category: 'Food & dining', type: 'expense' })
   const [adding, setAdding] = useState(false)
+  const [txnFilter, setTxnFilter] = useState('all')
+
+  useEffect(() => { fetchTransactions() }, [])
+
   async function fetchTransactions() {
     setLoading(true)
     const { data } = await supabase.from('transactions').select('*').order('date', { ascending: false })
     setTransactions(data || [])
     setLoading(false)
   }
-  const [txnFilter, setTxnFilter] = useState('all')
-
-  useEffect(() => { fetchTransactions() }, [])
 
   async function addTransaction() {
     if (!form.date || !form.description || !form.amount) return
     setAdding(true)
     const amount = form.type === 'expense' ? -Math.abs(parseFloat(form.amount)) : Math.abs(parseFloat(form.amount))
-    
-   let category = form.category
+    let category = form.category
     try {
       const res = await fetch('/api/categorize', {
         method: 'POST',
@@ -38,20 +38,9 @@ export default function Dashboard({ session }) {
       console.log('AI category result:', data)
       if (data.category) category = data.category
     } catch (e) {
-      console.log('AI categorize error:', e)
+      console.log('AI error:', e)
     }
-
     await supabase.from('transactions').insert([{ ...form, amount, category, user_id: session.user.id }])
-    setForm({ date: new Date().toISOString().slice(0,10), description: '', amount: '', category: 'Food & dining', type: 'expense' })
-    await fetchTransactions()
-    setAdding(false)
-  }
-
-  async function addTransaction() {
-    if (!form.date || !form.description || !form.amount) return
-    setAdding(true)
-    const amount = form.type === 'expense' ? -Math.abs(parseFloat(form.amount)) : Math.abs(parseFloat(form.amount))
-    await supabase.from('transactions').insert([{ ...form, amount, user_id: session.user.id }])
     setForm({ date: new Date().toISOString().slice(0,10), description: '', amount: '', category: 'Food & dining', type: 'expense' })
     await fetchTransactions()
     setAdding(false)
@@ -73,13 +62,10 @@ export default function Dashboard({ session }) {
   const curMonth = new Date().toISOString().slice(0,7)
   const mInc = transactions.filter(t => t.type === 'income' && t.date.startsWith(curMonth)).reduce((s,t) => s+t.amount, 0)
   const mExp = transactions.filter(t => t.type === 'expense' && t.date.startsWith(curMonth)).reduce((s,t) => s+Math.abs(t.amount), 0)
-
   const byCat = {}
   transactions.filter(t => t.type === 'expense').forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + Math.abs(t.amount) })
   const topCats = Object.keys(byCat).sort((a,b) => byCat[b] - byCat[a]).slice(0,5)
-
   const filteredTxns = txnFilter === 'all' ? transactions : transactions.filter(t => t.type === txnFilter)
-
   const incByCat = {}
   const expByCat = {}
   transactions.filter(t => t.type === 'income').forEach(t => { incByCat[t.category] = (incByCat[t.category] || 0) + t.amount })
@@ -128,9 +114,8 @@ export default function Dashboard({ session }) {
       <div style={s.content}>
         {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>Loading...</div> : <>
 
-          {/* OVERVIEW */}
           {tab === 'overview' && <>
-  <PlaidLink session={session} onSuccess={() => fetchTransactions()} />
+            <PlaidLink session={session} onSuccess={() => fetchTransactions()} />
             <div style={s.kpiRow}>
               <div style={s.kpi}><div style={s.kpiLabel}>Income (YTD)</div><div style={s.kpiVal('#3B6D11')}>{fmt(totalInc)}</div><div style={s.kpiSub}>{transactions.filter(t=>t.type==='income').length} transactions</div></div>
               <div style={s.kpi}><div style={s.kpiLabel}>Expenses (YTD)</div><div style={s.kpiVal('#A32D2D')}>{fmt(totalExp)}</div><div style={s.kpiSub}>{transactions.filter(t=>t.type==='expense').length} transactions</div></div>
@@ -166,14 +151,13 @@ export default function Dashboard({ session }) {
                   <div style={{ fontSize: 13, fontWeight: 600, color: t.type==='income'?'#3B6D11':'#A32D2D', marginLeft: 8 }}>{t.type==='income'?'+':'-'}{fmt(t.amount)}</div>
                 </div>
               ))}
-              {transactions.length === 0 && <div style={{ textAlign: 'center', padding: 20, color: '#aaa', fontSize: 13 }}>No transactions yet. Add one in the Transactions tab.</div>}
+              {transactions.length === 0 && <div style={{ textAlign: 'center', padding: 20, color: '#aaa', fontSize: 13 }}>No transactions yet.</div>}
             </div>
           </>}
 
-          {/* TRANSACTIONS */}
           {tab === 'transactions' && <>
             <div style={s.card}>
-              <div style={{ ...s.cardHead }}><span style={s.cardTitle}>Add transaction</span></div>
+              <div style={s.cardHead}><span style={s.cardTitle}>Add transaction</span></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
                 <div><label style={{ fontSize: 11, color: '#aaa', display: 'block', marginBottom: 3 }}>DATE</label>
                   <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} style={s.input} /></div>
@@ -193,7 +177,7 @@ export default function Dashboard({ session }) {
                     {(form.type === 'expense' ? CATS_EXP : CATS_INC).map(c => <option key={c}>{c}</option>)}
                   </select></div>
               </div>
-              <button onClick={addTransaction} disabled={adding} style={s.btn}>{adding ? 'Adding...' : 'Add transaction'}</button>
+              <button onClick={addTransaction} disabled={adding} style={{...s.btn, width: '100%', height: 42}}>{adding ? 'Adding with AI...' : 'Add transaction'}</button>
             </div>
             <div style={s.card}>
               <div style={s.cardHead}>
@@ -220,7 +204,6 @@ export default function Dashboard({ session }) {
             </div>
           </>}
 
-          {/* MONTHLY */}
           {tab === 'monthly' && <>
             {[...new Set(transactions.map(t => t.date.slice(0,7)))].sort().reverse().slice(0,1).map(month => {
               const mTxns = transactions.filter(t => t.date.startsWith(month))
@@ -258,7 +241,6 @@ export default function Dashboard({ session }) {
             {transactions.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#aaa', fontSize: 13 }}>No transactions yet.</div>}
           </>}
 
-          {/* TAX REPORT */}
           {tab === 'tax' && <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
