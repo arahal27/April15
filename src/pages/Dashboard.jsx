@@ -12,6 +12,12 @@ export default function Dashboard({ session }) {
   const [tab, setTab] = useState('overview')
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0,10), description: '', amount: '', category: 'Food & dining', type: 'expense' })
   const [adding, setAdding] = useState(false)
+  async function fetchTransactions() {
+    setLoading(true)
+    const { data } = await supabase.from('transactions').select('*').order('date', { ascending: false })
+    setTransactions(data || [])
+    setLoading(false)
+  }
   const [txnFilter, setTxnFilter] = useState('all')
 
   useEffect(() => { fetchTransactions() }, [])
