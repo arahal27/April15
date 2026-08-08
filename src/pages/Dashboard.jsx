@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import PlaidLink from './PlaidLink'
 import { supabase } from '../lib/supabase'
 
 const CATS_EXP = ['Food & dining','Transport','Housing','Utilities','Healthcare','Entertainment','Shopping','Business','Education','Other']
@@ -105,6 +106,7 @@ export default function Dashboard({ session }) {
 
           {/* OVERVIEW */}
           {tab === 'overview' && <>
+  <PlaidLink session={session} onSuccess={fetchTransactions} />
             <div style={s.kpiRow}>
               <div style={s.kpi}><div style={s.kpiLabel}>Income (YTD)</div><div style={s.kpiVal('#3B6D11')}>{fmt(totalInc)}</div><div style={s.kpiSub}>{transactions.filter(t=>t.type==='income').length} transactions</div></div>
               <div style={s.kpi}><div style={s.kpiLabel}>Expenses (YTD)</div><div style={s.kpiVal('#A32D2D')}>{fmt(totalExp)}</div><div style={s.kpiSub}>{transactions.filter(t=>t.type==='expense').length} transactions</div></div>
