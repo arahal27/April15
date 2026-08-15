@@ -59,15 +59,39 @@ export default function Dashboard({ session }) {
     try {
       const ext = file.name.split('.').pop()
       const path = `${session.user.id}/${txnId}.${ext}`
-      const { error } = await supabase.storage.from('receipts').upload(path, file, { upsert: true })
-      if (error) throw error
-      const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
-      const publicUrl = urlData.publicUrl
-      console.log('Receipt URL:', publicUrl)
-      await supabase.from('transactions').update({ receipt_url: publicUrl }).eq('id', txnId)
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('receipts')
+        .upload(path, file, { upsert: true })
+      
+      if (uploadError) {
+        console.log('Upload error:', uploadError)
+        setReceiptUploading(null)
+        return
+      }
+
+      console.log('Upload success:', uploadData)
+
+      const { data: urlData } = supabase.storage
+        .from('receipts')
+        .getPublicUrl(path)
+
+      console.log('Public URL:', urlData.publicUrl)
+
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({ receipt_url: urlData.publicUrl })
+        .eq('id', txnId)
+
+      if (updateError) {
+        console.log('Update error:', updateError)
+      } else {
+        console.log('Transaction updated successfully!')
+      }
+
       await fetchTransactions()
     } catch (e) {
-      console.log('Receipt upload error:', e)
+      console.log('Catch error:', e)
     }
     setReceiptUploading(null)
   }
