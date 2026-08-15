@@ -13,6 +13,11 @@ export default function Dashboard({ session }) {
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0,10), description: '', amount: '', category: 'Food & dining', type: 'expense' })
   const [adding, setAdding] = useState(false)
   const [txnFilter, setTxnFilter] = useState('all')
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [uploadingStatement, setUploadingStatement] = useState(false)
+  const [statementStatus, setStatementStatus] = useState('')
+  const [receiptUploading, setReceiptUploading] = useState(null)
+  const [viewReceipt, setViewReceipt] = useState(null)
 
   useEffect(() => { fetchTransactions() }, [])
 
@@ -35,12 +40,10 @@ export default function Dashboard({ session }) {
         body: JSON.stringify({ description: form.description, amount })
       })
       const data = await res.json()
-      console.log('AI category result:', data)
       if (data.category) category = data.category
-    } catch (e) {
-      console.log('AI error:', e)
-    }
-    await supabase.from('transactions').insert([{ ...form, amount, category, user_id: session.user.id }])
+    } catch (e) {}
+    const year = new Date(form.date).getFullYear()
+    await supabase.from('transactions').insert([{ ...form, amount, category, year, user_id: session.user.id }])
     setForm({ date: new Date().toISOString().slice(0,10), description: '', amount: '', category: 'Food & dining', type: 'expense' })
     await fetchTransactions()
     setAdding(false)
@@ -51,11 +54,175 @@ export default function Dashboard({ session }) {
     await fetchTransactions()
   }
 
+  async function uploadReceipt(txnId, file) {
+    setReceiptUploading(txnId)
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `${session.user.id}/${txnId}.${ext}`
+      const { error } = await supabase.storage.from('receipts').upload(path, file, { upsert: true })
+      if (error) throw error
+      const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
+      await supabase.from('transactions').update({ receipt_url: urlData.publicUrl }).eq('id', txnId)
+      await fetchTransactions()
+    } catch (e) {
+      console.log('Receipt upload error:', e)
+    }
+    setReceiptUploading(null)
+  }
+
+  async function uploadStatement(file) {
+    setUploadingStatement(true)
+    setStatementStatus('Reading your bank statement...')
+    try {
+      const text = await file.text()
+      const lines = text.split('\n').filter(l => l.trim())
+      const headers = lines[0].toLowerCase()
+      const transactions = []
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.replace(/"/g, '').trim())
+        if (cols.length < 3) continue
+        let date, description, amount
+        if (headers.includes('date') && headers.includes('amount')) {
+          const hi = headers.split(',')
+          const dateIdx = hi.findIndex(h => h.includes('date'))
+          const descIdx = hi.findIndex(h => h.includes('desc') || h.includes('name') || h.includes('merchant'))
+          const amtIdx = hi.findIndex(h => h.includes('amount'))
+          date = cols[dateIdx]
+          description = cols[descIdx] || cols[1]
+          amount = parseFloat(cols[amtIdx]?.replace(/[^0-9.-]/g, ''))
+        } else {
+          date = cols[0]
+          description = cols[1]
+          amount = parseFloat(cols[2]?.replace(/[^0-9.-]/g, ''))
+        }
+        if (!date || !description || isNaN(amount)) continue
+        const parsedDate = new Date(date)
+        if (isNaN(parsedDate.getTime())) continue
+        transactions.push({ date: parsedDate.toISOString().slice(0,10), description, amount })
+      }
+      setStatementStatus(`Found ${transactions.length} transactions. Categorizing with AI...`)
+      const toInsert = []
+      for (const t of transactions) {
+        let category = 'Other'
+        try {
+          const res = await fetch('/api/categorize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ description: t.description, amount: t.amount })
+          })
+          const data = await res.json()
+          if (data.category) category = data.category
+        } catch (e) {}
+        toInsert.push({
+          user_id: session.user.id,
+          date: t.date,
+          description: t.description,
+          amount: t.amount,
+          category,
+          type: t.amount > 0 ? 'income' : 'expense',
+          year: new Date(t.date).getFullYear()
+        })
+      }
+      await supabase.from('transactions').insert(toInsert)
+      setStatementStatus(`✅ Successfully imported ${toInsert.length} transactions!`)
+      await fetchTransactions()
+    } catch (e) {
+      setStatementStatus('Error reading file. Please make sure it is a CSV file from your bank.')
+    }
+    setUploadingStatement(false)
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
   }
 
+  function generatePDF() {
+    const yearTxns = transactions.filter(t => t.year === selectedYear || new Date(t.date).getFullYear() === selectedYear)
+    const allInc = yearTxns.filter(t => t.type === 'income')
+    const allExp = yearTxns.filter(t => t.type === 'expense')
+    const totalInc = allInc.reduce((s,t) => s+t.amount, 0)
+    const totalExp = allExp.reduce((s,t) => s+Math.abs(t.amount), 0)
+    const net = totalInc - totalExp
+    const incByCat = {}
+    const expByCat = {}
+    allInc.forEach(t => { incByCat[t.category] = (incByCat[t.category]||0) + t.amount })
+    allExp.forEach(t => { expByCat[t.category] = (expByCat[t.category]||0) + Math.abs(t.amount) })
+    const incCats = Object.keys(incByCat).sort((a,b) => incByCat[b]-incByCat[a])
+    const expCats = Object.keys(expByCat).sort((a,b) => expByCat[b]-expByCat[a])
+    const byM = {}
+    yearTxns.forEach(t => { const k=t.date.slice(0,7); if(!byM[k]) byM[k]={inc:0,exp:0,cnt:0}; if(t.type==='income') byM[k].inc+=t.amount; else byM[k].exp+=Math.abs(t.amount); byM[k].cnt++ })
+    const months = Object.keys(byM).sort()
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>April15 Tax Report ${selectedYear}</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:40px;color:#1a1a1a;font-size:13px;max-width:900px}
+h1{font-size:26px;font-weight:700;margin:0 0 4px;letter-spacing:-.5px}
+.meta{color:#888;font-size:12px;margin-bottom:28px}
+.net{border-radius:8px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.net.pos{background:#eaf3de;border:1px solid #c0dd97}.net.neg{background:#fcebeb;border:1px solid #f7c1c1}
+.net .lbl{font-size:14px;font-weight:600}.net.pos .lbl{color:#27500a}.net.neg .lbl{color:#791f1f}
+.net .val{font-size:22px;font-weight:800}.net.pos .val{color:#27500a}.net.neg .val{color:#791f1f}
+.kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:28px}
+.kpi{border:1px solid #e8e8e0;border-radius:8px;padding:14px 16px}
+.kpi .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#aaa;margin-bottom:6px}
+.kpi .val{font-size:22px;font-weight:700}
+h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#999;margin:28px 0 10px}
+.sheets{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-bottom:28px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#aaa;padding:0 0 7px;border-bottom:1px solid #eee}
+td{padding:8px 0;border-bottom:1px solid #f4f4f0;font-size:12px}.r{text-align:right}
+tfoot td{font-weight:700;border-top:1px solid #ccc;border-bottom:none;padding-top:9px}
+.grn{color:#27500a}.red{color:#791f1f}.muted{color:#aaa}
+.receipt{width:60px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #eee}
+@media print{body{padding:16px}}
+</style></head><body>
+<h1>April15 — Tax Report ${selectedYear}</h1>
+<div class="meta">Generated ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} · ${yearTxns.length} total transactions</div>
+<div class="net ${net>=0?'pos':'neg'}"><span class="lbl">Net position (income − expenses)</span><span class="val">${net>=0?'+':'−'}$${Math.abs(net).toFixed(2)}</span></div>
+<div class="kpis">
+  <div class="kpi"><div class="lbl">Total income</div><div class="val grn">$${totalInc.toFixed(2)}</div></div>
+  <div class="kpi"><div class="lbl">Total expenses</div><div class="val red">$${totalExp.toFixed(2)}</div></div>
+  <div class="kpi"><div class="lbl">Savings rate</div><div class="val">${totalInc>0?((net/totalInc)*100).toFixed(1):0}%</div></div>
+</div>
+<div class="sheets">
+<div>
+<h2>Income sheet</h2>
+<table><thead><tr><th>Source</th><th class="r">Count</th><th class="r">Total</th><th class="r">%</th></tr></thead>
+<tbody>${incCats.map(c=>`<tr><td>${c}</td><td class="r muted">${allInc.filter(t=>t.category===c).length}</td><td class="r grn">$${incByCat[c].toFixed(2)}</td><td class="r muted">${totalInc>0?((incByCat[c]/totalInc)*100).toFixed(1):0}%</td></tr>`).join('')}</tbody>
+<tfoot><tr><td>Total</td><td class="r">${allInc.length}</td><td class="r grn">$${totalInc.toFixed(2)}</td><td class="r">100%</td></tr></tfoot>
+</table>
+</div>
+<div>
+<h2>Expense sheet</h2>
+<table><thead><tr><th>Category</th><th class="r">Count</th><th class="r">Total</th><th class="r">%</th></tr></thead>
+<tbody>${expCats.map(c=>`<tr><td>${c}</td><td class="r muted">${allExp.filter(t=>t.category===c).length}</td><td class="r red">$${expByCat[c].toFixed(2)}</td><td class="r muted">${totalExp>0?((expByCat[c]/totalExp)*100).toFixed(1):0}%</td></tr>`).join('')}</tbody>
+<tfoot><tr><td>Total</td><td class="r">${allExp.length}</td><td class="r red">$${totalExp.toFixed(2)}</td><td class="r">100%</td></tr></tfoot>
+</table>
+</div>
+</div>
+<h2>Month-by-month summary</h2>
+<table><thead><tr><th>Month</th><th class="r">Income</th><th class="r">Expenses</th><th class="r">Net</th><th class="r">Txns</th></tr></thead>
+<tbody>${months.map(m=>{const r=byM[m];const n=r.inc-r.exp;return`<tr><td>${new Date(m+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</td><td class="r grn">$${r.inc.toFixed(2)}</td><td class="r red">$${r.exp.toFixed(2)}</td><td class="r ${n>=0?'grn':'red'}">${n>=0?'+':'−'}$${Math.abs(n).toFixed(2)}</td><td class="r muted">${r.cnt}</td></tr>`}).join('')}</tbody></table>
+<h2>All income transactions</h2>
+<table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="r">Amount</th><th class="r">Receipt</th></tr></thead>
+<tbody>${[...allInc].sort((a,b)=>b.date.localeCompare(a.date)).map(t=>`<tr><td class="muted">${t.date}</td><td>${t.description}</td><td class="muted">${t.category}</td><td class="r grn">+$${t.amount.toFixed(2)}</td><td class="r">${t.receipt_url?`<img src="${t.receipt_url}" class="receipt">`:'—'}</td></tr>`).join('')}</tbody>
+<tfoot><tr><td colspan="3">Total income</td><td class="r grn">$${totalInc.toFixed(2)}</td><td></td></tr></tfoot></table>
+<h2>All expense transactions</h2>
+<table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="r">Amount</th><th class="r">Receipt</th></tr></thead>
+<tbody>${[...allExp].sort((a,b)=>b.date.localeCompare(a.date)).map(t=>`<tr><td class="muted">${t.date}</td><td>${t.description}</td><td class="muted">${t.category}</td><td class="r red">−$${Math.abs(t.amount).toFixed(2)}</td><td class="r">${t.receipt_url?`<img src="${t.receipt_url}" class="receipt">`:'—'}</td></tr>`).join('')}</tbody>
+<tfoot><tr><td colspan="3">Total expenses</td><td class="r red">$${totalExp.toFixed(2)}</td><td></td></tr></tfoot></table>
+</body></html>`
+
+    const b = new Blob([html], {type:'text/html'})
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(b)
+    a.download = `april15-tax-report-${selectedYear}.html`
+    a.click()
+  }
+
   const fmt = n => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const years = [...new Set(transactions.map(t => new Date(t.date).getFullYear()))].sort().reverse()
+  const yearTxns = transactions.filter(t => new Date(t.date).getFullYear() === selectedYear)
   const totalInc = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const totalExp = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0)
   const net = totalInc - totalExp
@@ -66,18 +233,23 @@ export default function Dashboard({ session }) {
   transactions.filter(t => t.type === 'expense').forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + Math.abs(t.amount) })
   const topCats = Object.keys(byCat).sort((a,b) => byCat[b] - byCat[a]).slice(0,5)
   const filteredTxns = txnFilter === 'all' ? transactions : transactions.filter(t => t.type === txnFilter)
+  const taxInc = yearTxns.filter(t => t.type === 'income')
+  const taxExp = yearTxns.filter(t => t.type === 'expense')
+  const taxTotalInc = taxInc.reduce((s,t) => s+t.amount, 0)
+  const taxTotalExp = taxExp.reduce((s,t) => s+Math.abs(t.amount), 0)
+  const taxNet = taxTotalInc - taxTotalExp
   const incByCat = {}
   const expByCat = {}
-  transactions.filter(t => t.type === 'income').forEach(t => { incByCat[t.category] = (incByCat[t.category] || 0) + t.amount })
-  transactions.filter(t => t.type === 'expense').forEach(t => { expByCat[t.category] = (expByCat[t.category] || 0) + Math.abs(t.amount) })
-  const incCats = Object.keys(incByCat).sort((a,b) => incByCat[b] - incByCat[a])
-  const expCats = Object.keys(expByCat).sort((a,b) => expByCat[b] - expByCat[a])
+  taxInc.forEach(t => { incByCat[t.category] = (incByCat[t.category]||0) + t.amount })
+  taxExp.forEach(t => { expByCat[t.category] = (expByCat[t.category]||0) + Math.abs(t.amount) })
+  const incCats = Object.keys(incByCat).sort((a,b) => incByCat[b]-incByCat[a])
+  const expCats = Object.keys(expByCat).sort((a,b) => expByCat[b]-expByCat[a])
 
   const s = {
     app: { fontFamily: '-apple-system,BlinkMacSystemFont,sans-serif', background: '#f7f7f5', minHeight: '100vh', color: '#1a1a1a' },
     nav: { background: '#fff', borderBottom: '0.5px solid rgba(0,0,0,0.08)', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 4, height: 52, position: 'sticky', top: 0, zIndex: 10 },
     logo: { fontSize: 16, fontWeight: 700, marginRight: 'auto', letterSpacing: '-0.4px' },
-    tab: active => ({ padding: '6px 14px', fontSize: 13, fontWeight: 500, border: '0.5px solid ' + (active ? 'rgba(0,0,0,0.12)' : 'transparent'), borderRadius: 8, background: active ? '#f7f7f5' : 'none', color: active ? '#1a1a1a' : '#888', cursor: 'pointer' }),
+    tabBtn: active => ({ padding: '6px 14px', fontSize: 13, fontWeight: 500, border: '0.5px solid ' + (active ? 'rgba(0,0,0,0.12)' : 'transparent'), borderRadius: 8, background: active ? '#f7f7f5' : 'none', color: active ? '#1a1a1a' : '#888', cursor: 'pointer' }),
     content: { padding: 20, maxWidth: 740, margin: '0 auto' },
     kpiRow: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 },
     kpi: { background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px' },
@@ -102,12 +274,24 @@ export default function Dashboard({ session }) {
 
   return (
     <div style={s.app}>
+      {viewReceipt && (
+        <div onClick={() => setViewReceipt(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 20, maxWidth: 500, width: '90%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>Receipt</span>
+              <button onClick={() => setViewReceipt(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 18, color: '#aaa' }}>✕</button>
+            </div>
+            <img src={viewReceipt} alt="Receipt" style={{ width: '100%', borderRadius: 8 }} />
+          </div>
+        </div>
+      )}
+
       <div style={s.nav}>
         <div style={s.logo}>April15</div>
-        <button style={s.tab(tab==='overview')} onClick={() => setTab('overview')}>Overview</button>
-        <button style={s.tab(tab==='transactions')} onClick={() => setTab('transactions')}>Transactions</button>
-        <button style={s.tab(tab==='monthly')} onClick={() => setTab('monthly')}>Monthly</button>
-        <button style={s.tab(tab==='tax')} onClick={() => setTab('tax')}>Tax report</button>
+        <button style={s.tabBtn(tab==='overview')} onClick={() => setTab('overview')}>Overview</button>
+        <button style={s.tabBtn(tab==='transactions')} onClick={() => setTab('transactions')}>Transactions</button>
+        <button style={s.tabBtn(tab==='monthly')} onClick={() => setTab('monthly')}>Monthly</button>
+        <button style={s.tabBtn(tab==='tax')} onClick={() => setTab('tax')}>Tax report</button>
         <button onClick={signOut} style={{ marginLeft: 8, fontSize: 12, color: '#aaa', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
       </div>
 
@@ -179,6 +363,17 @@ export default function Dashboard({ session }) {
               </div>
               <button onClick={addTransaction} disabled={adding} style={{...s.btn, width: '100%', height: 42}}>{adding ? 'Adding with AI...' : 'Add transaction'}</button>
             </div>
+
+            <div style={s.card}>
+              <div style={s.cardHead}><span style={s.cardTitle}>Import bank statement</span><span style={{ fontSize: 11, color: '#aaa' }}>CSV format</span></div>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>Download a CSV statement from your bank and upload it here. AI will categorize everything automatically.</div>
+              <input type="file" accept=".csv" onChange={e => e.target.files[0] && uploadStatement(e.target.files[0])} style={{ display: 'none' }} id="statement-upload" />
+              <label htmlFor="statement-upload" style={{ ...s.btn, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', opacity: uploadingStatement ? 0.7 : 1 }}>
+                📄 {uploadingStatement ? 'Importing...' : 'Upload CSV statement'}
+              </label>
+              {statementStatus && <div style={{ fontSize: 13, color: '#666', marginTop: 12 }}>{statementStatus}</div>}
+            </div>
+
             <div style={s.card}>
               <div style={s.cardHead}>
                 <span style={s.cardTitle}>All transactions</span>
@@ -195,8 +390,13 @@ export default function Dashboard({ session }) {
                     <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.description}</div>
                     <div style={{ fontSize: 11, color: '#aaa' }}>{t.category} · {t.date}</div>
                   </div>
+                  {t.receipt_url && (
+                    <button onClick={() => setViewReceipt(t.receipt_url)} style={{ fontSize: 11, padding: '2px 7px', borderRadius: 6, border: '0.5px solid #c0dd97', background: '#eaf3de', color: '#3B6D11', cursor: 'pointer', marginRight: 4 }}>📎 receipt</button>
+                  )}
                   <span style={s.pill(t.type==='income')}>{t.type}</span>
                   <div style={{ fontSize: 13, fontWeight: 600, color: t.type==='income'?'#3B6D11':'#A32D2D', marginLeft: 8, marginRight: 8 }}>{t.type==='income'?'+':'-'}{fmt(t.amount)}</div>
+                  <input type="file" accept="image/*" onChange={e => e.target.files[0] && uploadReceipt(t.id, e.target.files[0])} style={{ display: 'none' }} id={`receipt-${t.id}`} />
+                  <label htmlFor={`receipt-${t.id}`} style={{ ...s.delBtn, cursor: 'pointer', fontSize: 11 }}>{receiptUploading===t.id ? '...' : '📷'}</label>
                   <button style={s.delBtn} onClick={() => deleteTransaction(t.id)}>✕</button>
                 </div>
               ))}
@@ -244,18 +444,27 @@ export default function Dashboard({ session }) {
           {tab === 'tax' && <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 2 }}>Tax report · {new Date().getFullYear()}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 2 }}>Tax report</div>
                 <div style={{ fontSize: 11, color: '#aaa' }}>Generated {new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
               </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))} style={{ ...s.input, width: 'auto', height: 32, fontSize: 13 }}>
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                  {!years.includes(new Date().getFullYear()) && <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>}
+                </select>
+                <button onClick={generatePDF} style={{ ...s.btn, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  ⬇ Download PDF
+                </button>
+              </div>
             </div>
-            <div style={s.netBanner(net>=0)}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: net>=0?'#3B6D11':'#A32D2D' }}>Net position (income − expenses)</span>
-              <span style={{ fontSize: 20, fontWeight: 700, color: net>=0?'#3B6D11':'#A32D2D' }}>{net>=0?'+':''}{fmt(net)}</span>
+            <div style={s.netBanner(taxNet>=0)}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: taxNet>=0?'#3B6D11':'#A32D2D' }}>Net position (income − expenses)</span>
+              <span style={{ fontSize: 20, fontWeight: 700, color: taxNet>=0?'#3B6D11':'#A32D2D' }}>{taxNet>=0?'+':''}{fmt(taxNet)}</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 12 }}>
-              <div style={s.kpi}><div style={s.kpiLabel}>Total income</div><div style={s.kpiVal('#3B6D11')}>{fmt(totalInc)}</div><div style={s.kpiSub}>{transactions.filter(t=>t.type==='income').length} transactions</div></div>
-              <div style={s.kpi}><div style={s.kpiLabel}>Total expenses</div><div style={s.kpiVal('#A32D2D')}>{fmt(totalExp)}</div><div style={s.kpiSub}>{transactions.filter(t=>t.type==='expense').length} transactions</div></div>
-              <div style={s.kpi}><div style={s.kpiLabel}>Savings rate</div><div style={s.kpiVal()}>{totalInc>0?((net/totalInc)*100).toFixed(1):0}%</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>Total income</div><div style={s.kpiVal('#3B6D11')}>{fmt(taxTotalInc)}</div><div style={s.kpiSub}>{taxInc.length} transactions</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>Total expenses</div><div style={s.kpiVal('#A32D2D')}>{fmt(taxTotalExp)}</div><div style={s.kpiSub}>{taxExp.length} transactions</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>Savings rate</div><div style={s.kpiVal()}>{taxTotalInc>0?((taxNet/taxTotalInc)*100).toFixed(1):0}%</div></div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div style={s.card}>
@@ -265,12 +474,12 @@ export default function Dashboard({ session }) {
                   <tbody>{incCats.map(c => (
                     <tr key={c}>
                       <td style={s.td}>{c}</td>
-                      <td style={{...s.td,textAlign:'right',color:'#aaa'}}>{transactions.filter(t=>t.type==='income'&&t.category===c).length}</td>
+                      <td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxInc.filter(t=>t.category===c).length}</td>
                       <td style={{...s.td,textAlign:'right',color:'#3B6D11',fontWeight:600}}>{fmt(incByCat[c])}</td>
-                      <td style={{...s.td,textAlign:'right',color:'#aaa'}}>{totalInc>0?((incByCat[c]/totalInc)*100).toFixed(0):0}%</td>
+                      <td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxTotalInc>0?((incByCat[c]/taxTotalInc)*100).toFixed(0):0}%</td>
                     </tr>
                   ))}</tbody>
-                  <tfoot><tr><td style={{fontWeight:700,paddingTop:10}}>Total</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>{transactions.filter(t=>t.type==='income').length}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10,color:'#3B6D11'}}>{fmt(totalInc)}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>100%</td></tr></tfoot>
+                  <tfoot><tr><td style={{fontWeight:700,paddingTop:10}}>Total</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>{taxInc.length}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10,color:'#3B6D11'}}>{fmt(taxTotalInc)}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>100%</td></tr></tfoot>
                 </table>
               </div>
               <div style={s.card}>
@@ -280,12 +489,12 @@ export default function Dashboard({ session }) {
                   <tbody>{expCats.map(c => (
                     <tr key={c}>
                       <td style={s.td}>{c}</td>
-                      <td style={{...s.td,textAlign:'right',color:'#aaa'}}>{transactions.filter(t=>t.type==='expense'&&t.category===c).length}</td>
+                      <td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxExp.filter(t=>t.category===c).length}</td>
                       <td style={{...s.td,textAlign:'right',color:'#A32D2D',fontWeight:600}}>{fmt(expByCat[c])}</td>
-                      <td style={{...s.td,textAlign:'right',color:'#aaa'}}>{totalExp>0?((expByCat[c]/totalExp)*100).toFixed(0):0}%</td>
+                      <td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxTotalExp>0?((expByCat[c]/taxTotalExp)*100).toFixed(0):0}%</td>
                     </tr>
                   ))}</tbody>
-                  <tfoot><tr><td style={{fontWeight:700,paddingTop:10}}>Total</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>{transactions.filter(t=>t.type==='expense').length}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10,color:'#A32D2D'}}>{fmt(totalExp)}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>100%</td></tr></tfoot>
+                  <tfoot><tr><td style={{fontWeight:700,paddingTop:10}}>Total</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>{taxExp.length}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10,color:'#A32D2D'}}>{fmt(taxTotalExp)}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>100%</td></tr></tfoot>
                 </table>
               </div>
             </div>
