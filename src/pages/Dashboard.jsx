@@ -62,7 +62,9 @@ export default function Dashboard({ session }) {
       const { error } = await supabase.storage.from('receipts').upload(path, file, { upsert: true })
       if (error) throw error
       const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
-      await supabase.from('transactions').update({ receipt_url: urlData.publicUrl }).eq('id', txnId)
+      const publicUrl = urlData.publicUrl
+      console.log('Receipt URL:', publicUrl)
+      await supabase.from('transactions').update({ receipt_url: publicUrl }).eq('id', txnId)
       await fetchTransactions()
     } catch (e) {
       console.log('Receipt upload error:', e)
