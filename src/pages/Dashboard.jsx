@@ -127,6 +127,21 @@ export default function Dashboard({ session }) {
         transactions.push({ date: parsedDate.toISOString().slice(0,10), description, amount })
       }
       setStatementStatus(`Found ${transactions.length} transactions. Categorizing with AI...`)
+      function cleanDescription(desc) {
+    return desc
+      .replace(/PURCHASE AUTHORIZED ON \d{2}\/\d{2}/gi, '')
+      .replace(/RECURRING PAYMENT AUTHORIZED ON \d{2}\/\d{2}/gi, '')
+      .replace(/ONLINE TRANSFER (FROM|TO)/gi, '')
+      .replace(/ZELLE (TO|FROM)/gi, '')
+      .replace(/MONEY TRANSFER AUTHORIZED ON \d{2}\/\d{2}/gi, '')
+      .replace(/Instant Pmt from/gi, '')
+      .replace(/REF#?\s*\w+/gi, '')
+      .replace(/P\d{6,}/g, '')
+      .replace(/S\d{6,}/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+      .slice(0, 50)
+  }
       const toInsert = []
       for (const t of transactions) {
         let category = 'Other'
@@ -134,7 +149,7 @@ export default function Dashboard({ session }) {
           const res = await fetch('/api/categorize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ description: t.description, amount: t.amount })
+            body: JSON.stringify({ description: cleanDescription(t.description), amount: t.amount })
           })
           const data = await res.json()
           if (data.category) category = data.category
