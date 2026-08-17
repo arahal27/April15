@@ -1,4 +1,3 @@
-// v2 - improved categorization
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -7,19 +6,24 @@ export default async function handler(req, res) {
   const { description, amount } = req.body
   const type = amount > 0 ? 'income' : 'expense'
 
-  const categories = [
-    'Food & dining', 'Transport', 'Housing', 'Utilities',
-    'Healthcare', 'Entertainment', 'Shopping', 'Business',
-    'Education', 'Salary', 'Freelance', 'Investments',
-    'Rental income', 'Gifts', 'Other income', 'Other'
-  ]
+  const categories = ['Food & dining', 'Transport', 'Housing', 'Utilities', 'Healthcare', 'Entertainment', 'Shopping', 'Business', 'Education', 'Salary', 'Freelance', 'Investments', 'Rental income', 'Gifts', 'Other income', 'Other']
+
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  console.log('API key exists:', !!apiKey)
+  console.log('Description:', description)
+
+  if (!apiKey) {
+    console.log('No API key found!')
+    return res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
+  }
 
   try {
+    console.log('Calling Claude API...')
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
@@ -27,30 +31,14 @@ export default async function handler(req, res) {
         max_tokens: 50,
         messages: [{
           role: 'user',
-          content: `You are a bank transaction categorizer. Bank descriptions often contain extra text like dates, locations, and reference numbers.
-
-Transaction: "${description}"
-Amount: ${amount} (${type})
-
-Rules:
-- Extract the merchant/purpose from the description and categorize it
-- "IN-N-OUT", "MCDONALD", "CHIPOTLE", "STARBUCKS" = Food & dining
-- "UBER", "LYFT", "SHELL", "GAS", "AIRLINE", "SOUTHWEST", "QT", "CHEVRON" = Transport
-- "NETFLIX", "SPOTIFY", "HULU", "AMC" = Entertainment  
-- "AMAZON", "TARGET", "WALMART", "BEST BUY" = Shopping
-- "CVS", "WALGREENS", "DOCTOR", "DENTAL", "PHARMACY" = Healthcare
-- "ELECTRIC", "WATER", "INTERNET", "SPECTRUM", "AT&T", "UTILITY" = Utilities
-- "PAYROLL", "SALARY", "DIRECT DEPOSIT" = Salary
-- "ZELLE FROM", "VENMO FROM", "CASH APP FROM", "TRANSFER FROM" = Other income
-- "ZELLE TO", "VENMO TO", "TRANSFER TO" = Other
-- Positive amounts are usually income
-- Pick ONE category from: ${categories.join(', ')}
-- Reply with ONLY the category name, nothing else`
+          content: `Categorize this bank transaction: "${description}" (${type}, $${Math.abs(amount)}). Pick ONE from: ${categories.join(', ')}. Reply with ONLY the category name.`
         }]
       })
     })
 
+    console.log('Claude response status:', response.status)
     const raw = await response.text()
+    console.log('Claude raw response:', raw)
     const data = JSON.parse(raw)
 
     if (data.error || !data.content || !data.content[0]) {
@@ -59,9 +47,11 @@ Rules:
 
     const category = data.content[0].text.trim()
     const validCategory = categories.includes(category) ? category : (type === 'income' ? 'Other income' : 'Other')
+    console.log('Final category:', validCategory)
     res.status(200).json({ category: validCategory })
 
   } catch (e) {
+    console.log('Error:', e.message)
     res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
   }
 }
