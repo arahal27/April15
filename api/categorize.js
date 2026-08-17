@@ -31,7 +31,20 @@ export default async function handler(req, res) {
         max_tokens: 50,
         messages: [{
           role: 'user',
-          content: `Categorize this bank transaction: "${description}" (${type}). Pick ONE category from this list: ${categories.join(', ')}. Reply with ONLY the category name, nothing else.`
+         content: `You are a bank transaction categorizer. Categorize this transaction: "${description}" (${type}).
+
+Common merchants to know:
+- QT, QuikTrip, Shell, Chevron, BP, Exxon, Mobil, Circle K, 7-Eleven, Wawa = Transport
+- IN-N-OUT, McDonald's, Chipotle, Starbucks, Subway, Chick-fil-A, Dominos = Food & dining
+- Netflix, Spotify, Hulu, Disney+, Apple TV, AMC = Entertainment
+- Amazon, Target, Walmart, Best Buy, Costco, Macy's = Shopping
+- CVS, Walgreens, Doctor, Dental, Pharmacy, Hospital = Healthcare
+- Electric, Water, Internet, AT&T, Verizon, Spectrum, Cox = Utilities
+- Payroll, Salary, Direct Deposit = Salary
+- DailyPay, Earnin = Other income
+- Zelle To, Transfer To, Payment To = Other
+
+Pick ONE from: ${categories.join(', ')}. Reply with ONLY the category name.`
         }]
       })
     })
