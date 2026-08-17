@@ -1,3 +1,9 @@
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -10,10 +16,16 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   console.log('API key exists:', !!apiKey)
-  console.log('Description:', description)
+  console.log('Description received:', description)
+  console.log('Amount received:', amount)
 
   if (!apiKey) {
     console.log('No API key found!')
+    return res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
+  }
+
+  if (!description) {
+    console.log('No description received!')
     return res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
   }
 
@@ -42,6 +54,7 @@ export default async function handler(req, res) {
     const data = JSON.parse(raw)
 
     if (data.error || !data.content || !data.content[0]) {
+      console.log('Invalid Claude response:', JSON.stringify(data))
       return res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
     }
 
@@ -51,7 +64,7 @@ export default async function handler(req, res) {
     res.status(200).json({ category: validCategory })
 
   } catch (e) {
-    console.log('Error:', e.message)
+    console.log('Catch error:', e.message)
     res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
   }
 }
