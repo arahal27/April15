@@ -1,70 +1,73 @@
-export const config = {
-  api: {
-    bodyParser: true,
-  },
-}
+const https = require('https')
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { description, amount } = req.body
+  const description = req.body?.description || ''
+  const amount = req.body?.amount || 0
   const type = amount > 0 ? 'income' : 'expense'
+
+  console.log('Received:', description, amount)
 
   const categories = ['Food & dining', 'Transport', 'Housing', 'Utilities', 'Healthcare', 'Entertainment', 'Shopping', 'Business', 'Education', 'Salary', 'Freelance', 'Investments', 'Rental income', 'Gifts', 'Other income', 'Other']
 
   const apiKey = process.env.ANTHROPIC_API_KEY
-  console.log('API key exists:', !!apiKey)
-  console.log('Description received:', description)
-  console.log('Amount received:', amount)
 
-  if (!apiKey) {
-    console.log('No API key found!')
+  if (!apiKey || !description) {
+    console.log('Missing key or description')
     return res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
   }
 
-  if (!description) {
-    console.log('No description received!')
-    return res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
-  }
+  const body = JSON.stringify({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 50,
+    messages: [{
+      role: 'user',
+      content: `Categorize: "${description}" (${type}). Pick ONE: ${categories.join(', ')}. Reply with ONLY the name.`
+    }]
+  })
 
-  try {
-    console.log('Calling Claude API...')
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 50,
-        messages: [{
-          role: 'user',
-          content: `Categorize this bank transaction: "${description}" (${type}, $${Math.abs(amount)}). Pick ONE from: ${categories.join(', ')}. Reply with ONLY the category name.`
-        }]
+        'anthropic-version': '2023-06-01',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }
+
+    const req2 = https.request(options, (response) => {
+      let data = ''
+      response.on('data', chunk => { data += chunk })
+      response.on('end', () => {
+        console.log('Claude response:', data)
+        try {
+          const parsed = JSON.parse(data)
+          const category = parsed.content?.[0]?.text?.trim() || ''
+          const validCategory = categories.includes(category) ? category : (type === 'income' ? 'Other income' : 'Other')
+          console.log('Category:', validCategory)
+          res.status(200).json({ category: validCategory })
+        } catch (e) {
+          console.log('Parse error:', e.message)
+          res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
+        }
+        resolve()
       })
     })
 
-    console.log('Claude response status:', response.status)
-    const raw = await response.text()
-    console.log('Claude raw response:', raw)
-    const data = JSON.parse(raw)
+    req2.on('error', (e) => {
+      console.log('Request error:', e.message)
+      res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
+      resolve()
+    })
 
-    if (data.error || !data.content || !data.content[0]) {
-      console.log('Invalid Claude response:', JSON.stringify(data))
-      return res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
-    }
-
-    const category = data.content[0].text.trim()
-    const validCategory = categories.includes(category) ? category : (type === 'income' ? 'Other income' : 'Other')
-    console.log('Final category:', validCategory)
-    res.status(200).json({ category: validCategory })
-
-  } catch (e) {
-    console.log('Catch error:', e.message)
-    res.status(200).json({ category: type === 'income' ? 'Other income' : 'Other' })
-  }
+    req2.write(body)
+    req2.end()
+  })
 }
