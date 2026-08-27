@@ -21,6 +21,7 @@ export default function Dashboard({ session }) {
   const [receiptUploading, setReceiptUploading] = useState(null)
   const [viewReceipt, setViewReceipt] = useState(null)
   const [editingCat, setEditingCat] = useState(null)
+  const [drillCat, setDrillCat] = useState(null)
 
   useEffect(() => { fetchTransactions() }, [])
 
@@ -165,12 +166,12 @@ export default function Dashboard({ session }) {
 <h1>April15 — Tax Report ${selectedYear}</h1>
 <div class="meta">Generated ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} · ${yearTxns.length} total transactions</div>
 <div class="net ${net>=0?'pos':'neg'}"><span class="lbl">Net position (income − expenses)</span><span class="val">${net>=0?'+':'−'}$${Math.abs(net).toFixed(2)}</span></div>
-<div class="kpis"><div class="kpi"><div class="lbl">Total income</div><div class="val grn">$${totalInc.toFixed(2)}</div></div><div class="kpi"><div class="lbl">Total expenses</div><div class="val red">$${totalExp.toFixed(2)}</div></div><div class="kpi"><div class="lbl">Savings rate</div><div class="val">${totalInc>0?((net/totalInc)*100).toFixed(1):0}%</div></div></div>
-<div class="sheets"><div><h2>Income sheet</h2><table><thead><tr><th>Source</th><th class="r">Count</th><th class="r">Total</th><th class="r">%</th></tr></thead><tbody>${incCats.map(c=>`<tr><td>${c}</td><td class="r muted">${allInc.filter(t=>t.category===c).length}</td><td class="r grn">$${incByCat[c].toFixed(2)}</td><td class="r muted">${totalInc>0?((incByCat[c]/totalInc)*100).toFixed(1):0}%</td></tr>`).join('')}</tbody><tfoot><tr><td>Total</td><td class="r">${allInc.length}</td><td class="r grn">$${totalInc.toFixed(2)}</td><td class="r">100%</td></tr></tfoot></table></div>
-<div><h2>Expense sheet</h2><table><thead><tr><th>Category</th><th class="r">Count</th><th class="r">Total</th><th class="r">%</th></tr></thead><tbody>${expCats.map(c=>`<tr><td>${c}</td><td class="r muted">${allExp.filter(t=>t.category===c).length}</td><td class="r red">$${expByCat[c].toFixed(2)}</td><td class="r muted">${totalExp>0?((expByCat[c]/totalExp)*100).toFixed(1):0}%</td></tr>`).join('')}</tbody><tfoot><tr><td>Total</td><td class="r">${allExp.length}</td><td class="r red">$${totalExp.toFixed(2)}</td><td class="r">100%</td></tr></tfoot></table></div></div>
-<h2>Month-by-month summary</h2><table><thead><tr><th>Month</th><th class="r">Income</th><th class="r">Expenses</th><th class="r">Net</th><th class="r">Txns</th></tr></thead><tbody>${months.map(m=>{const r=byM[m];const n=r.inc-r.exp;return`<tr><td>${new Date(m+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</td><td class="r grn">$${r.inc.toFixed(2)}</td><td class="r red">$${r.exp.toFixed(2)}</td><td class="r ${n>=0?'grn':'red'}">${n>=0?'+':'−'}$${Math.abs(n).toFixed(2)}</td><td class="r muted">${r.cnt}</td></tr>`}).join('')}</tbody></table>
-<h2>All income transactions</h2><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="r">Amount</th><th class="r">Receipt</th></tr></thead><tbody>${[...allInc].sort((a,b)=>b.date.localeCompare(a.date)).map(t=>`<tr><td class="muted">${t.date}</td><td>${t.description}</td><td class="muted">${t.category}</td><td class="r grn">+$${t.amount.toFixed(2)}</td><td class="r">${t.receipt_url?`<img src="${t.receipt_url}" class="receipt">`:'—'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3">Total income</td><td class="r grn">$${totalInc.toFixed(2)}</td><td></td></tr></tfoot></table>
-<h2>All expense transactions</h2><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="r">Amount</th><th class="r">Receipt</th></tr></thead><tbody>${[...allExp].sort((a,b)=>b.date.localeCompare(a.date)).map(t=>`<tr><td class="muted">${t.date}</td><td>${t.description}</td><td class="muted">${t.category}</td><td class="r red">−$${Math.abs(t.amount).toFixed(2)}</td><td class="r">${t.receipt_url?`<img src="${t.receipt_url}" class="receipt">`:'—'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3">Total expenses</td><td class="r red">$${totalExp.toFixed(2)}</td><td></td></tr></tfoot></table>
+<div class="kpis"><div class="kpi"><div class="lbl">Total income</div><div class="val grn">+$${totalInc.toFixed(2)}</div></div><div class="kpi"><div class="lbl">Total expenses</div><div class="val red">-$${totalExp.toFixed(2)}</div></div><div class="kpi"><div class="lbl">Savings rate</div><div class="val">${totalInc>0?((net/totalInc)*100).toFixed(1):0}%</div></div></div>
+<div class="sheets"><div><h2>Income sheet</h2><table><thead><tr><th>Source</th><th class="r">Count</th><th class="r">Total</th><th class="r">%</th></tr></thead><tbody>${incCats.map(c=>`<tr><td>${c}</td><td class="r muted">${allInc.filter(t=>t.category===c).length}</td><td class="r grn">+$${incByCat[c].toFixed(2)}</td><td class="r muted">${totalInc>0?((incByCat[c]/totalInc)*100).toFixed(1):0}%</td></tr>`).join('')}</tbody><tfoot><tr><td>Total</td><td class="r">${allInc.length}</td><td class="r grn">+$${totalInc.toFixed(2)}</td><td class="r">100%</td></tr></tfoot></table></div>
+<div><h2>Expense sheet</h2><table><thead><tr><th>Category</th><th class="r">Count</th><th class="r">Total</th><th class="r">%</th></tr></thead><tbody>${expCats.map(c=>`<tr><td>${c}</td><td class="r muted">${allExp.filter(t=>t.category===c).length}</td><td class="r red">-$${expByCat[c].toFixed(2)}</td><td class="r muted">${totalExp>0?((expByCat[c]/totalExp)*100).toFixed(1):0}%</td></tr>`).join('')}</tbody><tfoot><tr><td>Total</td><td class="r">${allExp.length}</td><td class="r red">-$${totalExp.toFixed(2)}</td><td class="r">100%</td></tr></tfoot></table></div></div>
+<h2>Month-by-month summary</h2><table><thead><tr><th>Month</th><th class="r">Income</th><th class="r">Expenses</th><th class="r">Net</th><th class="r">Txns</th></tr></thead><tbody>${months.map(m=>{const r=byM[m];const n=r.inc-r.exp;return`<tr><td>${new Date(m+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</td><td class="r grn">+$${r.inc.toFixed(2)}</td><td class="r red">-$${r.exp.toFixed(2)}</td><td class="r ${n>=0?'grn':'red'}">${n>=0?'+':'-'}$${Math.abs(n).toFixed(2)}</td><td class="r muted">${r.cnt}</td></tr>`}).join('')}</tbody></table>
+<h2>All income transactions</h2><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="r">Amount</th><th class="r">Receipt</th></tr></thead><tbody>${[...allInc].sort((a,b)=>b.date.localeCompare(a.date)).map(t=>`<tr><td class="muted">${t.date}</td><td>${t.description}</td><td class="muted">${t.category}</td><td class="r grn">+$${t.amount.toFixed(2)}</td><td class="r">${t.receipt_url?`<img src="${t.receipt_url}" class="receipt">`:'—'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3">Total income</td><td class="r grn">+$${totalInc.toFixed(2)}</td><td></td></tr></tfoot></table>
+<h2>All expense transactions</h2><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="r">Amount</th><th class="r">Receipt</th></tr></thead><tbody>${[...allExp].sort((a,b)=>b.date.localeCompare(a.date)).map(t=>`<tr><td class="muted">${t.date}</td><td>${t.description}</td><td class="muted">${t.category}</td><td class="r red">-$${Math.abs(t.amount).toFixed(2)}</td><td class="r">${t.receipt_url?`<img src="${t.receipt_url}" class="receipt">`:'—'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3">Total expenses</td><td class="r red">-$${totalExp.toFixed(2)}</td><td></td></tr></tfoot></table>
 </body></html>`
     const b = new Blob([html], {type:'text/html'})
     const a = document.createElement('a')
@@ -178,19 +179,22 @@ export default function Dashboard({ session }) {
   }
 
   const fmt = n => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const year = new Date().getFullYear()
+  const ytdStart = `${year}-01-01`
   const years = [...new Set(transactions.map(t => new Date(t.date).getFullYear()))].sort().reverse()
   const allMonths = [...new Set(transactions.map(t => t.date.slice(0,7)))].sort().reverse()
-  const yearTxns = transactions.filter(t => new Date(t.date).getFullYear() === selectedYear)
-  const totalInc = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-  const totalExp = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0)
+  const ytdTxns = transactions.filter(t => t.date >= ytdStart)
+  const totalInc = ytdTxns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+  const totalExp = ytdTxns.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0)
   const net = totalInc - totalExp
   const curMonth = new Date().toISOString().slice(0,7)
   const mInc = transactions.filter(t => t.type === 'income' && t.date.startsWith(curMonth)).reduce((s,t) => s+t.amount, 0)
   const mExp = transactions.filter(t => t.type === 'expense' && t.date.startsWith(curMonth)).reduce((s,t) => s+Math.abs(t.amount), 0)
   const byCat = {}
-  transactions.filter(t => t.type === 'expense').forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + Math.abs(t.amount) })
+  ytdTxns.filter(t => t.type === 'expense').forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + Math.abs(t.amount) })
   const topCats = Object.keys(byCat).sort((a,b) => byCat[b] - byCat[a]).slice(0,5)
   const filteredTxns = txnFilter === 'all' ? transactions : transactions.filter(t => t.type === txnFilter)
+  const yearTxns = transactions.filter(t => new Date(t.date).getFullYear() === selectedYear)
   const taxInc = yearTxns.filter(t => t.type === 'income')
   const taxExp = yearTxns.filter(t => t.type === 'expense')
   const taxTotalInc = taxInc.reduce((s,t) => s+t.amount, 0)
@@ -209,6 +213,7 @@ export default function Dashboard({ session }) {
   const mCat = {}
   mTxns.filter(t => t.type==='expense').forEach(t => { mCat[t.category] = (mCat[t.category]||0) + Math.abs(t.amount) })
   const mCats = Object.keys(mCat).sort((a,b) => mCat[b]-mCat[a])
+  const drillTxns = drillCat ? ytdTxns.filter(t => t.category === drillCat && t.type === 'expense') : []
 
   const s = {
     app: { fontFamily: '-apple-system,BlinkMacSystemFont,sans-serif', background: '#f7f7f5', minHeight: '100vh', color: '#1a1a1a' },
@@ -258,12 +263,33 @@ export default function Dashboard({ session }) {
             <div style={{ fontSize: 12, color: '#aaa', marginBottom: 14 }}>{editingCat.description}</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
               {ALL_CATS.map(c => (
-                <button key={c} onClick={() => updateCategory(editingCat.id, c)} style={{ padding: '8px 10px', borderRadius: 8, border: '0.5px solid ' + (editingCat.category===c?'#1a1a1a':'rgba(0,0,0,0.1)'), background: editingCat.category===c?'#1a1a1a':'#fff', color: editingCat.category===c?'#fff':'#1a1a1a', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
-                  {c}
-                </button>
+                <button key={c} onClick={() => updateCategory(editingCat.id, c)} style={{ padding: '8px 10px', borderRadius: 8, border: '0.5px solid ' + (editingCat.category===c?'#1a1a1a':'rgba(0,0,0,0.1)'), background: editingCat.category===c?'#1a1a1a':'#fff', color: editingCat.category===c?'#fff':'#1a1a1a', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>{c}</button>
               ))}
             </div>
             <button onClick={() => setEditingCat(null)} style={{ marginTop: 12, width: '100%', padding: '8px', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 13, color: '#aaa' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {drillCat && (
+        <div onClick={() => setDrillCat(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 20, maxWidth: 500, width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>{drillCat}</div>
+                <div style={{ fontSize: 12, color: '#aaa' }}>{drillTxns.length} transactions · {fmt(drillTxns.reduce((s,t) => s+Math.abs(t.amount),0))} total</div>
+              </div>
+              <button onClick={() => setDrillCat(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 18, color: '#aaa' }}>✕</button>
+            </div>
+            {drillTxns.map(t => (
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
+                <div>
+                  <div style={{ fontSize: 13 }}>{t.description}</div>
+                  <div style={{ fontSize: 11, color: '#aaa' }}>{t.date}</div>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#A32D2D' }}>-{fmt(t.amount)}</div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -283,20 +309,21 @@ export default function Dashboard({ session }) {
           {tab === 'overview' && <>
             <PlaidLink session={session} onSuccess={() => fetchTransactions()} />
             <div style={s.kpiRow}>
-              <div style={s.kpi}><div style={s.kpiLabel}>Income (YTD)</div><div style={s.kpiVal('#3B6D11')}>{fmt(totalInc)}</div><div style={s.kpiSub}>{transactions.filter(t=>t.type==='income').length} transactions</div></div>
-              <div style={s.kpi}><div style={s.kpiLabel}>Expenses (YTD)</div><div style={s.kpiVal('#A32D2D')}>{fmt(totalExp)}</div><div style={s.kpiSub}>{transactions.filter(t=>t.type==='expense').length} transactions</div></div>
-              <div style={s.kpi}><div style={s.kpiLabel}>Net savings</div><div style={s.kpiVal(net>=0?'#3B6D11':'#A32D2D')}>{fmt(net)}</div><div style={s.kpiSub}>{net>=0?'surplus':'deficit'}</div></div>
-              <div style={s.kpi}><div style={s.kpiLabel}>This month</div><div style={s.kpiVal((mInc-mExp)>=0?'#3B6D11':'#A32D2D')}>{fmt(mInc-mExp)}</div><div style={s.kpiSub}>{fmt(mInc)} in · {fmt(mExp)} out</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>Income (YTD {year})</div><div style={s.kpiVal('#3B6D11')}>+{fmt(totalInc)}</div><div style={s.kpiSub}>{ytdTxns.filter(t=>t.type==='income').length} transactions</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>Expenses (YTD {year})</div><div style={s.kpiVal('#A32D2D')}>-{fmt(totalExp)}</div><div style={s.kpiSub}>{ytdTxns.filter(t=>t.type==='expense').length} transactions</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>Net savings (YTD)</div><div style={s.kpiVal(net>=0?'#3B6D11':'#A32D2D')}>{net>=0?'+':'-'}{fmt(net)}</div><div style={s.kpiSub}>{net>=0?'surplus':'deficit'}</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>This month net</div><div style={s.kpiVal((mInc-mExp)>=0?'#3B6D11':'#A32D2D')}>{(mInc-mExp)>=0?'+':'-'}{fmt(mInc-mExp)}</div><div style={s.kpiSub}>{'+'+fmt(mInc)} in · {'-'+fmt(mExp)} out</div></div>
             </div>
             <div style={s.card}>
-              <div style={s.cardHead}><span style={s.cardTitle}>Top spending categories</span></div>
+              <div style={s.cardHead}><span style={s.cardTitle}>Top spending categories</span><span style={{ fontSize: 11, color: '#aaa' }}>Click to see transactions</span></div>
               {topCats.length ? topCats.map(c => (
-                <div key={c} style={{ marginBottom: 10 }}>
+                <div key={c} onClick={() => setDrillCat(c)} style={{ marginBottom: 10, cursor: 'pointer' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: C_EXP[c]||'#888', display: 'inline-block' }}></span>{c}
+                      <span style={{ fontSize: 10, color: '#aaa' }}>({ytdTxns.filter(t=>t.category===c&&t.type==='expense').length} txns)</span>
                     </span>
-                    <span style={{ fontSize: 12, color: '#888' }}>{fmt(byCat[c])}</span>
+                    <span style={{ fontSize: 12, color: '#888' }}>-{fmt(byCat[c])}</span>
                   </div>
                   <div style={{ height: 4, background: '#f0f0ec', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: (byCat[c]/(byCat[topCats[0]]||1)*100).toFixed(1)+'%', background: C_EXP[c]||'#888', borderRadius: 2 }}></div>
@@ -395,9 +422,9 @@ export default function Dashboard({ session }) {
               </select>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 12 }}>
-              <div style={s.kpi}><div style={s.kpiLabel}>Income</div><div style={s.kpiVal('#3B6D11')}>{fmt(mI)}</div></div>
-              <div style={s.kpi}><div style={s.kpiLabel}>Expenses</div><div style={s.kpiVal('#A32D2D')}>{fmt(mE)}</div></div>
-              <div style={s.kpi}><div style={s.kpiLabel}>Net</div><div style={s.kpiVal(mN>=0?'#3B6D11':'#A32D2D')}>{fmt(mN)}</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>Income</div><div style={s.kpiVal('#3B6D11')}>+{fmt(mI)}</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>Expenses</div><div style={s.kpiVal('#A32D2D')}>-{fmt(mE)}</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>Net</div><div style={s.kpiVal(mN>=0?'#3B6D11':'#A32D2D')}>{mN>=0?'+':'-'}{fmt(mN)}</div></div>
             </div>
             <div style={s.card}>
               <div style={s.cardHead}><span style={s.cardTitle}>Spending breakdown</span></div>
@@ -405,7 +432,7 @@ export default function Dashboard({ session }) {
                 <div key={c} style={{ marginBottom: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ fontSize: 12 }}>{c}</span>
-                    <span style={{ fontSize: 12, color: '#888' }}>{fmt(mCat[c])} · {mE>0?((mCat[c]/mE)*100).toFixed(0):0}%</span>
+                    <span style={{ fontSize: 12, color: '#888' }}>-{fmt(mCat[c])} · {mE>0?((mCat[c]/mE)*100).toFixed(0):0}%</span>
                   </div>
                   <div style={{ height: 4, background: '#f0f0ec', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: (mCat[c]/(mCat[mCats[0]]||1)*100).toFixed(1)+'%', background: C_EXP[c]||'#888', borderRadius: 2 }}></div>
@@ -446,11 +473,11 @@ export default function Dashboard({ session }) {
             </div>
             <div style={s.netBanner(taxNet>=0)}>
               <span style={{ fontSize: 13, fontWeight: 600, color: taxNet>=0?'#3B6D11':'#A32D2D' }}>Net position (income − expenses)</span>
-              <span style={{ fontSize: 20, fontWeight: 700, color: taxNet>=0?'#3B6D11':'#A32D2D' }}>{taxNet>=0?'+':''}{fmt(taxNet)}</span>
+              <span style={{ fontSize: 20, fontWeight: 700, color: taxNet>=0?'#3B6D11':'#A32D2D' }}>{taxNet>=0?'+':'-'}{fmt(taxNet)}</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 12 }}>
-              <div style={s.kpi}><div style={s.kpiLabel}>Total income</div><div style={s.kpiVal('#3B6D11')}>{fmt(taxTotalInc)}</div><div style={s.kpiSub}>{taxInc.length} transactions</div></div>
-              <div style={s.kpi}><div style={s.kpiLabel}>Total expenses</div><div style={s.kpiVal('#A32D2D')}>{fmt(taxTotalExp)}</div><div style={s.kpiSub}>{taxExp.length} transactions</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>Total income</div><div style={s.kpiVal('#3B6D11')}>+{fmt(taxTotalInc)}</div><div style={s.kpiSub}>{taxInc.length} transactions</div></div>
+              <div style={s.kpi}><div style={s.kpiLabel}>Total expenses</div><div style={s.kpiVal('#A32D2D')}>-{fmt(taxTotalExp)}</div><div style={s.kpiSub}>{taxExp.length} transactions</div></div>
               <div style={s.kpi}><div style={s.kpiLabel}>Savings rate</div><div style={s.kpiVal()}>{taxTotalInc>0?((taxNet/taxTotalInc)*100).toFixed(1):0}%</div></div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -458,16 +485,16 @@ export default function Dashboard({ session }) {
                 <div style={s.cardHead}><span style={s.cardTitle}>Income sheet</span><span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#eaf3de', color: '#3B6D11' }}>INCOME</span></div>
                 <table style={s.tbl}>
                   <thead><tr><th style={s.th}>Source</th><th style={{...s.th,textAlign:'right'}}>Count</th><th style={{...s.th,textAlign:'right'}}>Total</th><th style={{...s.th,textAlign:'right'}}>%</th></tr></thead>
-                  <tbody>{incCats.map(c => (<tr key={c}><td style={s.td}>{c}</td><td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxInc.filter(t=>t.category===c).length}</td><td style={{...s.td,textAlign:'right',color:'#3B6D11',fontWeight:600}}>{fmt(incByCat[c])}</td><td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxTotalInc>0?((incByCat[c]/taxTotalInc)*100).toFixed(0):0}%</td></tr>))}</tbody>
-                  <tfoot><tr><td style={{fontWeight:700,paddingTop:10}}>Total</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>{taxInc.length}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10,color:'#3B6D11'}}>{fmt(taxTotalInc)}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>100%</td></tr></tfoot>
+                  <tbody>{incCats.map(c => (<tr key={c}><td style={s.td}>{c}</td><td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxInc.filter(t=>t.category===c).length}</td><td style={{...s.td,textAlign:'right',color:'#3B6D11',fontWeight:600}}>+{fmt(incByCat[c])}</td><td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxTotalInc>0?((incByCat[c]/taxTotalInc)*100).toFixed(0):0}%</td></tr>))}</tbody>
+                  <tfoot><tr><td style={{fontWeight:700,paddingTop:10}}>Total</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>{taxInc.length}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10,color:'#3B6D11'}}>+{fmt(taxTotalInc)}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>100%</td></tr></tfoot>
                 </table>
               </div>
               <div style={s.card}>
                 <div style={s.cardHead}><span style={s.cardTitle}>Expense sheet</span><span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#fcebeb', color: '#A32D2D' }}>EXPENSES</span></div>
                 <table style={s.tbl}>
                   <thead><tr><th style={s.th}>Category</th><th style={{...s.th,textAlign:'right'}}>Count</th><th style={{...s.th,textAlign:'right'}}>Total</th><th style={{...s.th,textAlign:'right'}}>%</th></tr></thead>
-                  <tbody>{expCats.map(c => (<tr key={c}><td style={s.td}>{c}</td><td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxExp.filter(t=>t.category===c).length}</td><td style={{...s.td,textAlign:'right',color:'#A32D2D',fontWeight:600}}>{fmt(expByCat[c])}</td><td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxTotalExp>0?((expByCat[c]/taxTotalExp)*100).toFixed(0):0}%</td></tr>))}</tbody>
-                  <tfoot><tr><td style={{fontWeight:700,paddingTop:10}}>Total</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>{taxExp.length}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10,color:'#A32D2D'}}>{fmt(taxTotalExp)}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>100%</td></tr></tfoot>
+                  <tbody>{expCats.map(c => (<tr key={c}><td style={s.td}>{c}</td><td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxExp.filter(t=>t.category===c).length}</td><td style={{...s.td,textAlign:'right',color:'#A32D2D',fontWeight:600}}>-{fmt(expByCat[c])}</td><td style={{...s.td,textAlign:'right',color:'#aaa'}}>{taxTotalExp>0?((expByCat[c]/taxTotalExp)*100).toFixed(0):0}%</td></tr>))}</tbody>
+                  <tfoot><tr><td style={{fontWeight:700,paddingTop:10}}>Total</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>{taxExp.length}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10,color:'#A32D2D'}}>-{fmt(taxTotalExp)}</td><td style={{textAlign:'right',fontWeight:700,paddingTop:10}}>100%</td></tr></tfoot>
                 </table>
               </div>
             </div>
