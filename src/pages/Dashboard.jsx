@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import JSZip from 'jszip'
 import { supabase } from '../lib/supabase'
 import PlaidLink from './PlaidLink'
 
@@ -176,6 +177,37 @@ export default function Dashboard({ session }) {
     const b = new Blob([html], {type:'text/html'})
     const a = document.createElement('a')
     a.href = URL.createObjectURL(b); a.download = `april15-tax-report-${selectedYear}.html`; a.click()
+  }
+  async function generateZIP() {
+    const zip = new JSZip()
+    const yearTxns = transactions.filter(t => new Date(t.date).getFullYear() === selectedYear)
+    const expTxns = yearTxns.filter(t => t.type === 'expense' && t.receipt_url)
+
+    if (expTxns.length === 0) {
+      alert('No receipts found for this year. Upload receipts to transactions first.')
+      return
+    }
+
+    const catFolders = {}
+    for (const t of expTxns) {
+      const folder = t.category || 'Other'
+      if (!catFolders[folder]) catFolders[folder] = zip.folder(folder)
+      try {
+        const response = await fetch(t.receipt_url)
+        const blob = await response.blob()
+        const ext = t.receipt_url.split('.').pop().split('?')[0] || 'jpg'
+        const filename = `${t.date}-${t.description.slice(0,20).replace(/[^a-z0-9]/gi,'_')}.${ext}`
+        catFolders[folder].file(filename, blob)
+      } catch (e) {
+        console.log('Could not fetch receipt:', t.receipt_url)
+      }
+    }
+
+    const content = await zip.generateAsync({ type: 'blob' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(content)
+    a.download = `april15-receipts-${selectedYear}.zip`
+    a.click()
   }
 
   const fmt = n => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -469,6 +501,8 @@ export default function Dashboard({ session }) {
                   {!years.includes(new Date().getFullYear()) && <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>}
                 </select>
                 <button onClick={generatePDF} style={{ ...s.btn, display: 'flex', alignItems: 'center', gap: 6 }}>⬇ Download PDF</button>
+<button onClick={generateZIP} style={{ ...s.btn, display: 'flex', alignItems: 'center', gap: 6, background: '#3B6D11' }}>📁 Export receipts ZIP</button>
+              </div>
               </div>
             </div>
             <div style={s.netBanner(taxNet>=0)}>
