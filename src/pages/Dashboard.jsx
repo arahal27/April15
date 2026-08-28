@@ -500,14 +500,13 @@ export default function Dashboard({ session }) {
                   {years.map(y => <option key={y} value={y}>{y}</option>)}
                   {!years.includes(new Date().getFullYear()) && <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>}
                 </select>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
   <button onClick={generatePDF} style={{ ...s.btn, display: 'flex', alignItems: 'center', gap: 6 }}>⬇ Download PDF</button>
   <button onClick={generateZIP} style={{ ...s.btn, display: 'flex', alignItems: 'center', gap: 6, background: '#3B6D11' }}>📁 Receipts ZIP</button>
 </div>
               </div>
               </div>
               </div>
-            </div>
             <div style={s.netBanner(taxNet>=0)}>
               <span style={{ fontSize: 13, fontWeight: 600, color: taxNet>=0?'#3B6D11':'#A32D2D' }}>Net position (income − expenses)</span>
               <span style={{ fontSize: 20, fontWeight: 700, color: taxNet>=0?'#3B6D11':'#A32D2D' }}>{taxNet>=0?'+':'-'}{fmt(taxNet)}</span>
