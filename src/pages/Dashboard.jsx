@@ -500,8 +500,11 @@ export default function Dashboard({ session }) {
                   {years.map(y => <option key={y} value={y}>{y}</option>)}
                   {!years.includes(new Date().getFullYear()) && <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>}
                 </select>
-                <button onClick={generatePDF} style={{ ...s.btn, display: 'flex', alignItems: 'center', gap: 6 }}>⬇ Download PDF</button>
-<button onClick={generateZIP} style={{ ...s.btn, display: 'flex', alignItems: 'center', gap: 6, background: '#3B6D11' }}>📁 Export receipts ZIP</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+  <button onClick={generatePDF} style={{ ...s.btn, display: 'flex', alignItems: 'center', gap: 6 }}>⬇ Download PDF</button>
+  <button onClick={generateZIP} style={{ ...s.btn, display: 'flex', alignItems: 'center', gap: 6, background: '#3B6D11' }}>📁 Receipts ZIP</button>
+</div>
+              </div>
               </div>
               </div>
             </div>
