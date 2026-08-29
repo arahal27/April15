@@ -36,7 +36,7 @@ export default function Landing() {
     howInner: { maxWidth: 680, margin: '0 auto' },
     sectionLabel: { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.8px', color: '#aaa', marginBottom: 10 },
     sectionTitle: { fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 700, letterSpacing: '-0.5px', marginBottom: 40, color: '#1a1a1a' },
-    stepGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 24 },
+    stepGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 32, maxWidth: 600, margin: '0 auto' },
     step: { display: 'flex', flexDirection: 'column', gap: 10 },
     stepNum: { width: 32, height: 32, borderRadius: '50%', background: '#1a1a1a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 },
     stepTitle: { fontSize: 14, fontWeight: 600, color: '#1a1a1a' },

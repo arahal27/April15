@@ -249,8 +249,8 @@ export default function Dashboard({ session }) {
 
   const s = {
     app: { fontFamily: '-apple-system,BlinkMacSystemFont,sans-serif', background: '#f7f7f5', minHeight: '100vh', color: '#1a1a1a' },
-    nav: { background: '#fff', borderBottom: '0.5px solid rgba(0,0,0,0.08)', padding: '0 12px', display: 'flex', alignItems: 'center', gap: 2, height: 52, position: 'sticky', top: 0, zIndex: 10, overflowX: 'auto' },
-    logo: { fontSize: 16, fontWeight: 700, marginRight: 'auto', letterSpacing: '-0.4px' },
+   nav: { background: '#fff', borderBottom: '0.5px solid rgba(0,0,0,0.08)', padding: '0 6px', display: 'flex', alignItems: 'center', gap: 1, height: 52, position: 'sticky', top: 0, zIndex: 10, overflowX: 'auto' },
+   logo: { fontSize: 13, fontWeight: 700, marginRight: 4, letterSpacing: '-0.4px', flexShrink: 0 },
    tabBtn: active => ({ padding: '6px 10px', fontSize: 12, fontWeight: 500, border: '0.5px solid ' + (active ? 'rgba(0,0,0,0.12)' : 'transparent'), borderRadius: 8, background: active ? '#f7f7f5' : 'none', color: active ? '#1a1a1a' : '#888', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }),
     content: { padding: 20, maxWidth: 740, margin: '0 auto' },
     kpiRow: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 },
