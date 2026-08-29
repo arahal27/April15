@@ -36,7 +36,7 @@ export default function Landing() {
     howInner: { maxWidth: 680, margin: '0 auto' },
     sectionLabel: { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.8px', color: '#aaa', marginBottom: 10 },
     sectionTitle: { fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 700, letterSpacing: '-0.5px', marginBottom: 40, color: '#1a1a1a' },
-    stepGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24 },
+    stepGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 24 },
     step: { display: 'flex', flexDirection: 'column', gap: 10 },
     stepNum: { width: 32, height: 32, borderRadius: '50%', background: '#1a1a1a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 },
     stepTitle: { fontSize: 14, fontWeight: 600, color: '#1a1a1a' },
@@ -117,7 +117,7 @@ export default function Landing() {
         <div style={s.featGrid}>
           {[
             { icon: '🏦', title: 'Automatic bank sync', desc: 'Connect your bank once and every transaction imports automatically. Supports all major US banks.' },
-            { icon: '🤖', title: 'AI categorization', desc: 'Claude AI reads every transaction and assigns the right category instantly — food, transport, healthcare, and more.' },
+           { icon: '🤖', title: 'AI categorization', desc: 'Our AI reads every transaction and assigns the right category instantly — food, transport, healthcare, and more.' },
             { icon: '📄', title: 'Tax-ready reports', desc: 'Generate a complete annual tax report with income and expense sheets, month-by-month summaries, and receipt attachments.' },
             { icon: '📷', title: 'Receipt capture', desc: 'Snap a photo of any receipt and attach it to a transaction. Export as a ZIP organized by category for your accountant.' },
             { icon: '📊', title: 'Monthly insights', desc: 'Track spending trends month by month. Click any category to drill into every transaction underneath it.' },
