@@ -16,10 +16,16 @@ export default function Login() {
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
-    } else {
+    } else if (mode === 'signup') {
       const { error } = await supabase.auth.signUp({ email, password })
       if (error) setError(error.message)
       else setMessage('Check your email for a confirmation link!')
+    } else if (mode === 'reset') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://april-15.com/reset-password'
+      })
+      if (error) setError(error.message)
+      else setMessage('Check your email for a password reset link!')
     }
     setLoading(false)
   }
@@ -53,6 +59,11 @@ export default function Login() {
           />
         </div>
 
+{mode === 'login' && (
+  <div style={{ textAlign: 'right', marginBottom: 16, marginTop: -16 }}>
+    <span onClick={() => setMode('reset')} style={{ fontSize: 12, color: '#888', cursor: 'pointer', textDecoration: 'underline' }}>Forgot password?</span>
+  </div>
+)}
         {error && <div style={{fontSize:13,color:'#A32D2D',background:'#fcebeb',border:'0.5px solid #f7c1c1',borderRadius:8,padding:'10px 14px',marginBottom:16}}>{error}</div>}
         {message && <div style={{fontSize:13,color:'#3B6D11',background:'#eaf3de',border:'0.5px solid #c0dd97',borderRadius:8,padding:'10px 14px',marginBottom:16}}>{message}</div>}
 
@@ -61,14 +72,13 @@ export default function Login() {
           disabled={loading}
           style={{width:'100%',height:42,background:'#1a1a1a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',marginBottom:16,opacity:loading?0.7:1}}
         >
-          {loading ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Create account'}
+         {loading ? 'Please wait...' : mode === 'login' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
         </button>
 
         <div style={{textAlign:'center',fontSize:13,color:'#888'}}>
-          {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-          <span onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} style={{color:'#1a1a1a',fontWeight:600,cursor:'pointer'}}>
-            {mode === 'login' ? 'Sign up' : 'Sign in'}
-          </span>
+          {mode === 'login' && <>Don't have an account? <span onClick={() => setMode('signup')} style={{color:'#1a1a1a',fontWeight:600,cursor:'pointer'}}>Sign up</span></>}
+{mode === 'signup' && <>Already have an account? <span onClick={() => setMode('login')} style={{color:'#1a1a1a',fontWeight:600,cursor:'pointer'}}>Sign in</span></>}
+{mode === 'reset' && <>Remember your password? <span onClick={() => setMode('login')} style={{color:'#1a1a1a',fontWeight:600,cursor:'pointer'}}>Sign in</span></>}
         </div>
       </div>
     </div>
