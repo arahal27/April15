@@ -453,7 +453,7 @@ export default function Dashboard({ session }) {
                 {allMonths.map(m => <option key={m} value={m}>{new Date(m+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</option>)}
               </select>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 12 }}>
               <div style={s.kpi}><div style={s.kpiLabel}>Income</div><div style={s.kpiVal('#3B6D11')}>+{fmt(mI)}</div></div>
               <div style={s.kpi}><div style={s.kpiLabel}>Expenses</div><div style={s.kpiVal('#A32D2D')}>-{fmt(mE)}</div></div>
               <div style={s.kpi}><div style={s.kpiLabel}>Net</div><div style={s.kpiVal(mN>=0?'#3B6D11':'#A32D2D')}>{mN>=0?'+':'-'}{fmt(mN)}</div></div>
@@ -515,7 +515,7 @@ export default function Dashboard({ session }) {
               <div style={s.kpi}><div style={s.kpiLabel}>Total expenses</div><div style={s.kpiVal('#A32D2D')}>-{fmt(taxTotalExp)}</div><div style={s.kpiSub}>{taxExp.length} transactions</div></div>
               <div style={s.kpi}><div style={s.kpiLabel}>Savings rate</div><div style={s.kpiVal()}>{taxTotalInc>0?((taxNet/taxTotalInc)*100).toFixed(1):0}%</div></div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 12 }}>
               <div style={s.card}>
                 <div style={s.cardHead}><span style={s.cardTitle}>Income sheet</span><span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#eaf3de', color: '#3B6D11' }}>INCOME</span></div>
                 <table style={s.tbl}>
