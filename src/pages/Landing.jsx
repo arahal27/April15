@@ -77,7 +77,7 @@ export default function Landing() {
         <div style={s.mockupInner}>
           <div style={s.mockupNav}>
             <span style={s.mockupLogo}>April15</span>
-            {['Overview','Transactions','Monthly','Tax report'].map((t,i) => (
+           {['Overview','Transactions','Monthly','Tax'].map((t,i) => (
               <span key={t} style={s.mockupTab(i===0)}>{t}</span>
             ))}
           </div>
