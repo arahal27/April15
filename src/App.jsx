@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
+import ResetPassword from './pages/ResetPassword'
 import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
 
@@ -32,7 +33,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={!session ? <Landing /> : <Navigate to="/dashboard" />} />
       <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" />} />
-      <Route path="/dashboard/*" element={session ? <Dashboard session={session} /> : <Navigate to="/login" />} />
+     <Route path="/reset-password" element={<ResetPassword />} />
     </Routes>
   )
 }
