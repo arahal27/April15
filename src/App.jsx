@@ -34,7 +34,7 @@ export default function App() {
   <Route path="/" element={!session ? <Landing /> : <Navigate to="/dashboard" />} />
   <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" />} />
   <Route path="/reset-password" element={<ResetPassword />} />
-  <Route path="/dashboard" element={session ? <Dashboard /> : <Navigate to="/login" />} />
+  <Route path="/dashboard" element={session ? <Dashboard session={session} /> : <Navigate to="/login" />} />
 </Routes>
   )
 }
